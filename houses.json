@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "type": "faes",
+    "area": 1,
+    "floors": 3,
+    "price": 12345.0,
+    "discountRate": 0.0
+  },
+  {
+    "id": 6,
+    "type": "htyjt",
+    "area": 41,
+    "floors": 7,
+    "price": 242232.0,
+    "discountRate": 0.0
+  },
+  {
+    "id": 3,
+    "type": "thrybgdvs",
+    "area": 44,
+    "floors": 6,
+    "price": 9999999.0,
+    "discountRate": 0.0
+  }
+]

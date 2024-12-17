@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<houses>
+    <house>
+        <id>1</id>
+        <type>faes</type>
+        <area>1</area>
+        <floors>3</floors>
+        <price>12345.0</price>
+    </house>
+    <house>
+        <id>6</id>
+        <type>htyjt</type>
+        <area>41</area>
+        <floors>7</floors>
+        <price>242232.0</price>
+    </house>
+    <house>
+        <id>3</id>
+        <type>thrybgdvs</type>
+        <area>44</area>
+        <floors>6</floors>
+        <price>9999999.0</price>
+    </house>
+</houses>
