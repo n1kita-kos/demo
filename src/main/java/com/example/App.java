@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import javax.crypto.SecretKey;
@@ -16,13 +17,18 @@ import javax.crypto.spec.SecretKeySpec;
 import com.example.utils.ConcreteHouse;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
@@ -51,7 +57,8 @@ public class App extends Application {
     String jsonFilename = "houses.json";
     String encryptedFilename = "encrypted.txt";
 
-    
+    private static final ListView<String> listView = new ListView<>();
+
 
     // Загрузка ключа из файла
     public static SecretKey loadKeyFromFile() throws IOException {
@@ -82,12 +89,20 @@ public class App extends Application {
         outputArea.setEditable(false);
 
         // Добавляем outputArea и таблицу в VBox
-        outputAndTableBox.getChildren().addAll(outputArea, tableView);
+        outputAndTableBox.getChildren().addAll(outputArea, tableView,listView);
         createTableView();
+        createListView();
+
         // Область для вывода результатов
         outputArea.setPrefHeight(200);
         outputArea.setEditable(false);
         outputArea.setWrapText(true);
+        House basicHouse = new ConcreteHouse(1, "fkuyuui", 100, 4, 200000);
+
+        House discountedHouse = new DiscountDecorator(basicHouse, 0.2);
+        outputArea.appendText("Original House Price: " + basicHouse.getPrice()+"\n");
+        outputArea.appendText("Discounted House Price: " + discountedHouse.getPrice()+"\n");
+        outputArea.appendText(discountedHouse.toString()+"\n");
         try {
             key = loadKeyFromFile();
             outputArea.appendText("Ключ загружен из файла.");
@@ -102,6 +117,7 @@ public class App extends Application {
         houseSet.addAll(FileManager.readFromXML(xmlFilename));
         houseSet.addAll(FileManager.readFromJSON(jsonFilename));
         houseCollection.getAllHouses().addAll(houseSet);
+        houseSet.clear();
         // Область ввода
         inputArea.setPadding(new Insets(10));
         createInputFields(); // Создаем поля ввода
@@ -115,7 +131,10 @@ public class App extends Application {
         primaryStage.setScene(scene);
         primaryStage.show();
     }
-
+    private void createListView() {
+        listView.setPrefHeight(200); // Устанавливаем высоту списка
+        listView.setPlaceholder(new Label("Список домов пуст")); // Сообщение, если список пуст
+    }
     // Создаем панель с кнопками
     private VBox createButtonPanel() {
         VBox vbox = new VBox(10);
@@ -141,7 +160,8 @@ public class App extends Application {
     // Обрабатываем нажатие на кнопки
     private void handleButtonClick(String action) {
         outputArea.clear();
-
+        tableData.clear();
+        listView.getItems().clear();
         switch (action) {
             case "Добавить дом":
                 addHouse();
@@ -200,18 +220,39 @@ public class App extends Application {
                 List<House> houses34= e.importFromExcel("houses.xlsx");
                 Set<House> h2=houseSet;
                 h2.addAll(houses34);
-                houseCollection3.getAllHouses().addAll(h2);
-                houseCollection=houseCollection3;
+                houseCollection.getAllHouses().clear();
+                houseCollection.getAllHouses().addAll(h2);
                 outputArea.appendText("Данные успешно импортированы из файла houses.xlsx\n");
-                printAllHouses3();
+                h2.clear();
+                printAllHouses();
                 break;
             case "Выход":
-                try {
-                    saveKeyToFile(key);
-                } catch (IOException e1) {
-                    e1.printStackTrace();
+                Alert exitAlert = new Alert(AlertType.CONFIRMATION);
+                exitAlert.setTitle("Подтверждение выхода");
+                exitAlert.setHeaderText("Вы точно хотите выйти?");
+                exitAlert.setContentText("Выберите 'Да' для выхода или 'Нет' для продолжения работы.");
+        
+                // Добавляем кнопки Да и Нет
+                ButtonType yesButton = new ButtonType("Да");
+                ButtonType noButton = new ButtonType("Нет");
+        
+                exitAlert.getButtonTypes().setAll(yesButton, noButton);
+        
+                // Показываем диалоговое окно и ждём ответа пользователя
+                Optional<ButtonType> result = exitAlert.showAndWait();
+        
+                // Проверяем, что нажал пользователь
+                if (result.isPresent() && result.get() == yesButton) {
+                    try {
+                        saveKeyToFile(key);
+                    } catch (IOException e1) {
+                        e1.printStackTrace();
+                    }
+                    System.exit(0);
+                }else{
+                    exitAlert.hide();
                 }
-                System.exit(0);
+                
                 break;
             
         }
@@ -291,15 +332,15 @@ public class App extends Application {
         }
     }
     // Сортировка по цене
-    private void sortHousesByPrice() {
+    private static void sortHousesByPrice() {
         List<House> houses = houseCollection.getAllHouses();
         houses.sort(Comparator.comparingDouble(House::getPrice));
         outputArea.appendText("Дома отсортированы по цене:\n");
         printAllHouses();
     }
-
+    
     // Сортировка по площади
-    private void sortHousesByArea() {
+    private static void sortHousesByArea() {
         List<House> houses = houseCollection.getAllHouses();
         houses.sort(Comparator.comparingInt(House::getArea));
         outputArea.appendText("Дома отсортированы по площади:\n");
@@ -307,22 +348,72 @@ public class App extends Application {
     }
     private static void saveToFile(String txtFilename, String xmlFilename, String jsonFilename) {
         List<House> houses = houseCollection.getAllHouses();
-        FileManager.writeToTxt(txtFilename, houses);
-        outputArea.appendText("Данные успешно записаны в TXT файл.\n");
-        FileManager.writeToXML(xmlFilename, houses);
-        outputArea.appendText("Данные успешно записаны в XML файл.\n");
+        // FileManager.writeToTxt(txtFilename, houses);
+        Thread txtWriter = new Thread(() -> {
+            FileManager.writeToTxt(txtFilename, houses);
+            Platform.runLater(() -> outputArea.appendText("Данные успешно записаны в TXT файл.\n"));
+        });
+        Thread jsonandxmlWriter = new Thread(() -> {
         FileManager.writeToJSON(jsonFilename, houses);
-        outputArea.appendText("Данные успешно записаны в JSON файл.\n");
-        outputArea.appendText("Данные успешно сохранены в файлы.\n");
+        Platform.runLater(() -> outputArea.appendText("Данные успешно записаны в JSON файл.\n"));
+        FileManager.writeToXML(xmlFilename, houses);
+        Platform.runLater(() -> outputArea.appendText("Данные успешнозаписаны в XML файл.\n"));
+        });
+
+        jsonandxmlWriter.start();
+        txtWriter.start();
+        try {
+            jsonandxmlWriter.join();
+            txtWriter.join();
+            Platform.runLater(()->outputArea.appendText("Данные успешно сохранены в файлы.\n"));
+        } catch (InterruptedException e) {
+            Platform.runLater(() -> outputArea.appendText("Ошибка параллельного чтения данных.\n"));
+        }
+        // outputArea.appendText("Данные успешно записаны в TXT файл.\n");
+        // FileManager.writeToXML(xmlFilename, houses);
+        // outputArea.appendText("Данные успешно записаны в XML файл.\n");
+        // FileManager.writeToJSON(jsonFilename, houses);
+        // outputArea.appendText("Данные успешно записаны в JSON файл.\n");
+        // outputArea.appendText("Данные успешно сохранены в файлы.\n");
     }
     private static void readFromFile(String txtFilename, String xmlFilename, String jsonFilename) {
-        Set<House> houseSet = new HashSet<>();
-        houseSet.addAll(FileManager.readFromTxt(txtFilename));
-        houseSet.addAll(FileManager.readFromXML(xmlFilename));
-        houseSet.addAll(FileManager.readFromJSON(jsonFilename));
+        Set<House> houseSet2 = new HashSet<>();
+        Thread jsonandxmlReader = new Thread(() -> {
+            List<House> housesFromJson = FileManager.readFromJSON(jsonFilename);
+            synchronized (houseSet2) {
+                houseSet2.addAll(housesFromJson);
+            }
+            Platform.runLater(() -> outputArea.appendText("Данные успешно прочитаны из JSON файла.\n"));
+            List<House> housesFromXml = FileManager.readFromXML(xmlFilename);
+            synchronized (houseSet2) {
+                houseSet2.addAll(housesFromXml);
+            }
+            Platform.runLater(() -> outputArea.appendText("Данные успешно прочитаны из Xml файла.\n"));
+        });
+        Thread txtReader = new Thread(()->{
+            List<House> housesFromTxt = FileManager.readFromTxt(txtFilename);
+            synchronized (houseSet2) {
+                houseSet2.addAll(housesFromTxt);
+            }
+            Platform.runLater(() -> outputArea.appendText("Данные успешно прочитаны из Txt файла.\n"));
+        });
+        jsonandxmlReader.start();
+        txtReader.start();
+        // houseSet.addAll(FileManager.readFromTxt(txtFilename));
+        // houseSet.addAll(FileManager.readFromXML(xmlFilename));
+        // houseSet.addAll(FileManager.readFromJSON(jsonFilename));
         houseCollection.getAllHouses().clear();
-        houseCollection.getAllHouses().addAll(houseSet);
-        outputArea.appendText("Данные успешно прочитаны из файлов.\n");
+        try {
+            jsonandxmlReader.join();
+            txtReader.join();
+            houseCollection.getAllHouses().addAll(houseSet2);
+            Platform.runLater(()->outputArea.appendText("Данные успешно прочитаны из файлов.\n"));
+        } catch (InterruptedException e) {
+            Platform.runLater(() -> outputArea.appendText("Ошибка параллельного чтения данных.\n"));
+        }
+        houseSet2.clear();
+
+        // outputArea.appendText("Данные успешно прочитаны из файлов.\n");
         printAllHouses();
     }
     // Печать всех домов
@@ -383,6 +474,10 @@ public class App extends Application {
     private static void updateTableData(List<House> houses) {
         tableData.clear();
         tableData.addAll(houses);
+        listView.getItems().clear();
+        for (House house : houses) {
+            listView.getItems().add(house.toString());
+        }
     }
     public static void saveKeyToFile(SecretKey secretKey) throws IOException {
         FileOutputStream fos = new FileOutputStream(KEY_FILE);
